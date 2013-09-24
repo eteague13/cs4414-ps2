@@ -5,6 +5,7 @@ use std::path;
 
 
 
+
 fn main() {
 	static CMD_PROMPT: &'static str = "gash > ";
 	let mut command_history = ~"";
@@ -93,15 +94,15 @@ fn main() {
 									flags = ~[io::Create, io::Truncate];
 								}
 								//remove args
-								let mut lastIndex = argv.len()-1;
-								let destinationName = &argv.remove(lastIndex); //remove file name
+								let lastIndex = argv.len()-1;
+								let fileName = &argv.remove(lastIndex); //remove file name
 								argv.remove(lastIndex-1); //remove >
 
 								//store output
-								let mut process_result = run::process_output(program, argv);
-								let mut results = str::from_bytes(process_result.output);
-								let mut outputFile = Path(*destinationName);
-								match io::file_writer(&outputFile, flags){
+								let process_result = run::process_output(program, argv);
+								let results = str::from_bytes(process_result.output);
+								let file = Path(*fileName);
+								match io::file_writer(&file, flags){
 									Ok(writer) => {
 										writer.write_line(fmt!("%s", results)); 
 									}
@@ -112,12 +113,42 @@ fn main() {
 							}
 							//std input
 							else if(argv.contains(&~"<")){
+								//remove args
+								let lastIndex = argv.len()-1;
+								let fileName = &argv.remove(lastIndex);//remove file name
+								argv.remove(lastIndex-1); //remove <	
 
+								//create process and writer
+								let mut process = run::Process::new(program, argv, run::ProcessOptions{
+									env: None,
+									dir: None,
+									in_fd: None,
+									out_fd: None,
+									err_fd: None});
+								let processWriter = process.input();
+								
+								//get input
+								let fileReader: Result<@Reader, ~str> = std::io::file_reader(~path::Path(fileName.to_str()));
+								let mut file_contents: ~[~str];
+								match fileReader {
+									Ok(reader) => {
+										//write input to process
+										processWriter.write(reader.read_whole_stream());
+									}
+									Err(msg) => {
+										file_contents = ~[];
+									}
+								}
+								//print out results
+								let out = process.finish_with_output();
+								println(fmt!("\n%s", str::from_bytes(out.output)));
 							}
+							//piping
 							else if(argv.contains(&~"|")){
 
 							}
-						}							
+						}	
+						//no io redirect/piping						
 						else{
 							std::run::process_status(program, argv);
 						}
@@ -128,3 +159,4 @@ fn main() {
 		}//end if argv.len()>0
 	}//end gash > loop
 }//end main
+
