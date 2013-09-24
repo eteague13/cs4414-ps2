@@ -75,83 +75,12 @@ fn main() {
 						let argv = argv;
 						//launch background process with a new schedule
 						do std::task::spawn_sched(std::task::SingleThreaded){
-							//Todo: add clasues for pipes and shit
-							std::run::process_status(program, argv);
+							execute_process(program, argv);
 						}
 					}
 					//Foreground process
 					else{
-						//check for pipes or io redirect, assuming we have only one
-						if(argv.contains(&~">>") || argv.contains(&~">") || argv.contains(&~"<") || argv.contains(&~"|") ){
-							//std output
-							if(argv.contains(&~">") || argv.contains(&~">>")){
-								//set flags for append or truncate	
-								let mut flags;
-								if(argv.contains(&~">>")){
-									flags = ~[io::Create, io::Append];
-								}
-								else{
-									flags = ~[io::Create, io::Truncate];
-								}
-								//remove args
-								let lastIndex = argv.len()-1;
-								let fileName = &argv.remove(lastIndex); //remove file name
-								argv.remove(lastIndex-1); //remove >
-
-								//store output
-								let process_result = run::process_output(program, argv);
-								let results = str::from_bytes(process_result.output);
-								let file = Path(*fileName);
-								match io::file_writer(&file, flags){
-									Ok(writer) => {
-										writer.write_line(fmt!("%s", results)); 
-									}
-									Err(err) => {
-										fail!(err)
-									}
-								}
-							}
-							//std input
-							else if(argv.contains(&~"<")){
-								//remove args
-								let lastIndex = argv.len()-1;
-								let fileName = &argv.remove(lastIndex);//remove file name
-								argv.remove(lastIndex-1); //remove <	
-
-								//create process and writer
-								let mut process = run::Process::new(program, argv, run::ProcessOptions{
-									env: None,
-									dir: None,
-									in_fd: None,
-									out_fd: None,
-									err_fd: None});
-								let processWriter = process.input();
-								
-								//get input
-								let fileReader: Result<@Reader, ~str> = std::io::file_reader(~path::Path(fileName.to_str()));
-								let mut file_contents: ~[~str];
-								match fileReader {
-									Ok(reader) => {
-										//write input to process
-										processWriter.write(reader.read_whole_stream());
-									}
-									Err(msg) => {
-										file_contents = ~[];
-									}
-								}
-								//print out results
-								let out = process.finish_with_output();
-								println(fmt!("\n%s", str::from_bytes(out.output)));
-							}
-							//piping
-							else if(argv.contains(&~"|")){
-
-							}
-						}	
-						//no io redirect/piping						
-						else{
-							std::run::process_status(program, argv);
-						}
+						execute_process(program, argv);
 					}
 
 				}
@@ -160,3 +89,76 @@ fn main() {
 	}//end gash > loop
 }//end main
 
+fn execute_process(program: ~str, mut argv: ~[~str]) -> (){
+	//check for pipes or io redirect, assuming we have only one
+	if(argv.contains(&~">>") || argv.contains(&~">") || argv.contains(&~"<") || argv.contains(&~"|") ){
+		//std output
+		if(argv.contains(&~">") || argv.contains(&~">>")){
+			//set flags for append or truncate	
+			let mut flags;
+			if(argv.contains(&~">>")){
+				flags = ~[io::Create, io::Append];
+			}
+			else{
+				flags = ~[io::Create, io::Truncate];
+			}
+			//remove args
+			let lastIndex = argv.len()-1;
+			let fileName = &argv.remove(lastIndex); //remove file name
+			argv.remove(lastIndex-1); //remove >
+
+			//store output
+			let process_result = run::process_output(program, argv);
+			let results = str::from_bytes(process_result.output);
+			let file = Path(*fileName);
+			match io::file_writer(&file, flags){
+				Ok(writer) => {
+					writer.write_line(fmt!("%s", results)); 
+				}
+				Err(err) => {
+					fail!(err)
+				}
+			}
+		}
+		//std input
+		else if(argv.contains(&~"<")){
+			//remove args
+			let lastIndex = argv.len()-1;
+			let fileName = &argv.remove(lastIndex);//remove file name
+			argv.remove(lastIndex-1); //remove <	
+
+			//create process and writer
+			let mut process = run::Process::new(program, argv, run::ProcessOptions{
+				env: None,
+				dir: None,
+				in_fd: None,
+				out_fd: None,
+				err_fd: None});
+			let processWriter = process.input();
+		
+			//get input
+			let fileReader: Result<@Reader, ~str> = std::io::file_reader(~path::Path(fileName.to_str()));
+			match fileReader {
+				Ok(reader) => {
+					//write input to process
+					processWriter.write(reader.read_whole_stream());
+				}
+				Err(msg) => {
+					println(fmt!("Error reading file: %?",msg));
+				}
+			}
+			//print out results
+			let out = process.finish_with_output();
+			println(fmt!("\n%s", str::from_bytes(out.output)));
+		}
+		//piping
+		else if(argv.contains(&~"|")){
+
+		}
+	}	
+
+	//no io redirect/piping						
+	else{
+		std::run::process_status(program, argv);
+	}
+}
