@@ -71,11 +71,11 @@ fn main() {
 						//Remove & from args so the args are correct
 						let lastIndex = argv.len()-1;
 						argv.remove(lastIndex);
-						//transfer ownership
+						//Create non mutable reference to argv
 						let argv = argv;
 						//launch background process with a new schedule
 						do std::task::spawn_sched(std::task::SingleThreaded){
-							execute_process(program, argv);
+							execute_process( copy program, copy argv);
 						}
 					}
 					//Foreground process
@@ -153,7 +153,7 @@ fn execute_process(program: ~str, mut argv: ~[~str]) -> (){
 		}
 		//piping
 		else if(argv.contains(&~"|")){
-
+			
 		}
 	}	
 
