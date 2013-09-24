@@ -151,9 +151,48 @@ fn execute_process(program: ~str, mut argv: ~[~str]) -> (){
 			let out = process.finish_with_output();
 			println(fmt!("\n%s", str::from_bytes(out.output)));
 		}
-		//piping
+		//piping- only supports one pipe now
 		else if(argv.contains(&~"|")){
 			
+			let mut hitPipe = false;
+			let mut programLeft = ~"";
+			let mut programRight = ~"";
+			let mut argLeft = ~[~""];
+			let mut argRight = ~[~""];
+			
+			programLeft = program;
+			while (argv.len()>0) {	
+				if(argv[0].equals(&~"|")){
+					hitPipe = true;
+					argv.remove(0); //get rid of |
+					programRight = argv.remove(0);
+				}
+				if(argv.len()>0){
+					if(hitPipe){
+						argRight.push(argv.remove(0));
+					}
+					else{
+						argLeft.push(argv.remove(0));
+					}
+				}
+			}
+			//remove empty indexes			
+			argLeft.remove(0);
+			argRight.remove(0);
+
+			let process_result = run::process_output(programLeft, argLeft);
+			let mut process = run::Process::new(programRight, argv, run::ProcessOptions{
+				env: None,
+				dir: None,
+				in_fd: None,
+				out_fd: None,
+				err_fd: None});
+			
+			let processWriter = process.input();
+			processWriter.write(process_result.output);
+
+			let out = process.finish_with_output();
+			println(fmt!("\n%s", str::from_bytes(out.output)));
 		}
 	}	
 
