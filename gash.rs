@@ -151,48 +151,66 @@ fn execute_process(program: ~str, mut argv: ~[~str]) -> (){
 			let out = process.finish_with_output();
 			println(fmt!("\n%s", str::from_bytes(out.output)));
 		}
-		//piping- only supports one pipe now
+		//piping
 		else if(argv.contains(&~"|")){
-			
-			let mut hitPipe = false;
-			let mut programLeft = ~"";
-			let mut programRight = ~"";
-			let mut argLeft = ~[~""];
-			let mut argRight = ~[~""];
-			
-			programLeft = program;
-			while (argv.len()>0) {	
+			//init vars
+			let mut args:~[~[~str]] = ~[~[]]; //vector of vectors
+			let mut programStart = ~"";
+			let mut programNext = ~"";
+			let mut argStart:~[~str] = ~[];
+			let mut argNext:~[~str] = ~[];
+			let mut process_next = run::Process::new("echo", ~[~"This is an error"], run::ProcessOptions{
+					env: None,
+					dir: None,
+					in_fd: None,
+					out_fd: None,
+					err_fd: None});			
+
+			//Seperate all programs/arguments into vector of vectors
+			let mut progCounter = 0;
+			args[progCounter].push(program); //push first program name
+			while (argv.len() > 0) {
 				if(argv[0].equals(&~"|")){
-					hitPipe = true;
-					argv.remove(0); //get rid of |
-					programRight = argv.remove(0);
+					args.push(~[]); //push a new vector for a new process
+					argv.remove(0); //remove |
+					progCounter+=1;
 				}
-				if(argv.len()>0){
-					if(hitPipe){
-						argRight.push(argv.remove(0));
-					}
-					else{
-						argLeft.push(argv.remove(0));
-					}
-				}
+				args[progCounter].push(argv.remove(0)); //push program name or arguments
 			}
-			//remove empty indexes			
-			argLeft.remove(0);
-			argRight.remove(0);
-
-			let process_result = run::process_output(programLeft, argLeft);
-			let mut process = run::Process::new(programRight, argv, run::ProcessOptions{
-				env: None,
-				dir: None,
-				in_fd: None,
-				out_fd: None,
-				err_fd: None});
 			
-			let processWriter = process.input();
-			processWriter.write(process_result.output);
+			//run chaining piping
+			let mut currentProg = 0;
 
-			let out = process.finish_with_output();
-			println(fmt!("\n%s", str::from_bytes(out.output)));
+			//init first program and arguments
+			programStart = args[currentProg].remove(0);
+			while (args[currentProg].len()>0){
+				argStart.push(args[currentProg].remove(0));
+			}
+			let mut process_last_result = run::process_output(programStart, argStart); //run first process	
+
+			//chaining through pipes
+			currentProg +=1;
+			while(currentProg <= progCounter){
+				//init next process
+				programNext = args[currentProg].remove(0);
+				while(args[currentProg].len() > 0){
+					argNext.push(args[currentProg].remove(0));
+				}
+				//create process for the next process and create a writer so that the recent process can funnel input
+				process_next = run::Process::new(programNext, argv, run::ProcessOptions{
+					env: None,
+					dir: None,
+					in_fd: None,
+					out_fd: None,
+					err_fd: None});
+				let processWriter = process_next.input(); //get input writer for next process
+				processWriter.write(process_last_result.output); //write input from last process to next process				
+				process_last_result = process_next.finish_with_output(); //get output from next process
+				currentProg+=1;
+			}
+			
+			//print out final input
+			println(fmt!("\n%s", str::from_bytes(process_last_result.output)));
 		}
 	}	
 
