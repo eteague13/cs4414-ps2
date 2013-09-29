@@ -1,6 +1,7 @@
 use std::{io, run};
 use std::str;
 use std::path;
+use std::rand::RngUtil;
 
 
 
@@ -54,6 +55,81 @@ fn main() {
 					command_history.push_str("history");
 					command_history.push_str("\n");
 				}
+				~">" => {
+					let mut fileName = argv[0];
+					let mut flags = ~[io::Create, io::Truncate];
+					let file = Path(fileName);
+					let mut nothing = "";
+					match io::file_writer(&file, flags){
+						Ok(writer) => {
+							writer.write_line(fmt!("%s",nothing)); 
+						}
+						Err(err) => {
+							fail!(err)
+						}
+					}
+					command_history.push_str("> " + fileName);
+					command_history.push_str("\n");	
+				}
+				~"cowsay" => {
+					println(" -------------------------------");
+					println("/                               \\");
+					let mut message = ~"";
+					while argv.len() > 0 {
+						message.push_str(" ");
+						message.push_str(argv.remove(0));
+					}
+					command_history.push_str("cowsay ");
+					command_history.push_str(message);
+					command_history.push_str("\n");	
+					println(message);
+					println("\\                               /");
+					println(" -------------------------------");
+					println("     \\    ^____^");
+					println("      \\    (oo)\\______________");
+					println("           (__)\\              )\\/\\");
+					println("                ||-----------w |");
+					println("                ||            ||");
+					
+					
+					
+				}
+				~"add" => {
+					let mut total: float = 0.0;
+					while argv.len() > 0 {
+						let temp: float = std::float::from_str(argv.remove(0)).unwrap();
+						total+=temp;
+						
+					}
+					println(fmt!("%f", total));
+				}
+				~"divide" => {
+					let mut total: float = std::float::from_str(argv.remove(0)).unwrap();
+					while argv.len() > 0 {
+						let temp: float = std::float::from_str(argv.remove(0)).unwrap();
+						total = total / temp;
+						
+					}
+					println(fmt!("%f", total));
+				}
+				~"subtract" => {
+					let mut total: float = std::float::from_str(argv.remove(0)).unwrap();
+					while argv.len() > 0 {
+						let temp: float = std::float::from_str(argv.remove(0)).unwrap();
+						total = total - temp;
+						
+					}
+					println(fmt!("%f", total));
+				}
+				~"multiply" => {
+					let mut total: float = std::float::from_str(argv.remove(0)).unwrap();
+					while argv.len() > 0 {
+						let temp: float = std::float::from_str(argv.remove(0)).unwrap();
+						total = total * temp;
+						
+					}
+					println(fmt!("%f", total));
+				}
 				_ => {
 					//history logging, we need to record all the arguments too.
 					command_history.push_str(program);
@@ -73,10 +149,13 @@ fn main() {
 						argv.remove(lastIndex);
 						//Create non mutable reference to argv
 						let argv = argv;
+						
 						//launch background process with a new schedule
 						do std::task::spawn_sched(std::task::SingleThreaded){
 							execute_process( copy program, copy argv);
+							
 						}
+						
 					}
 					//Foreground process
 					else{
@@ -212,10 +291,12 @@ fn execute_process(program: ~str, mut argv: ~[~str]) -> (){
 			//print out final input
 			println(fmt!("\n%s", str::from_bytes(process_last_result.output)));
 		}
+		
 	}	
-
+	
 	//no io redirect/piping						
 	else{
 		std::run::process_status(program, argv);
+		
 	}
 }
